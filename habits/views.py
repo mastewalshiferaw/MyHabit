@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import generics, viewsets, permissions, response, status
 from .serializers import UserSerializer, HabitSerializer, HabitLogSerializer
 from .models import Habit, HabitLog
-from datetime import data, timedelta
+from datetime import date, timedelta
 
 
 from rest_framework.views import APIView

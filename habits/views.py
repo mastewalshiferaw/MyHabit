@@ -1,8 +1,11 @@
 from django.contrib.auth.models import User
-from rest_framework import generics, viewsets, permissions
+from rest_framework import generics, viewsets, permissions, response, status
 from .serializers import UserSerializer, HabitSerializer, HabitLogSerializer
 from .models import Habit, HabitLog
 from datetime import data, timedelta
+
+
+from rest_framework.views import APIView
 
 class LogHabitView(generics.CreateAPIView):
     serializer_class = HabitLogSerializer
@@ -218,3 +221,33 @@ class HabitStatsView(generics.RetrieveAPIView):
             "logs": [log.completion_date for log in habit.habitlog_set.order_by('completion_date')]
         }
         return response.Response(data, status=status.HTTP_200_OK)
+    
+
+
+class DashboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Get user's habits
+        user_habits = Habit.objects.filter(user=request.user)
+        
+        # Use methods from HabitStatsView
+        stats_calculator = HabitStatsView()
+
+        dashboard_data = []
+        for habit in user_habits:
+            # Get current streak
+            if habit.habit_type == 'BUILD':
+                current_streak, _ = stats_calculator.calculate_build_streaks(habit)
+            else:  # QUIT
+                current_streak, _ = stats_calculator.calculate_quit_streaks(habit)
+
+            # Add habit summary
+            dashboard_data.append({
+                "habit_id": habit.id,
+                "habit_name": habit.name,
+                "habit_type": habit.habit_type,
+                "current_streak": current_streak,
+            })
+        
+        return response.Response(dashboard_data, status=status.HTTP_200_OK)

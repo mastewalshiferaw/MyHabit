@@ -7,26 +7,31 @@ from datetime import date, timedelta
 
 # --- User Registration View ---
 class RegisterView(generics.CreateAPIView):
+    """Allows new users to create an account."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = []
+    permission_classes = [permissions.AllowAny] # Allow anyone to register
 
 
 # --- Habit CRUD ViewSet ---
 class HabitViewSet(viewsets.ModelViewSet):
+    """Handles all Create, Retrieve, Update, and Delete (CRUD) operations for habits."""
     serializer_class = HabitSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        """This method ensures that a user can only see their own habits."""
         return Habit.objects.filter(user=self.request.user)
 
 
 # --- Habit Logging View ---
 class LogHabitView(generics.CreateAPIView):
+    """Handles the creation of a new log entry for a specific habit."""
     serializer_class = HabitLogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
+        """Associates the log with the correct habit, ensuring the user owns it."""
         habit_pk = self.kwargs.get('habit_pk')
         habit = generics.get_object_or_404(Habit, pk=habit_pk, user=self.request.user)
         serializer.save(habit=habit)
@@ -34,18 +39,20 @@ class LogHabitView(generics.CreateAPIView):
 
 # --- DETAILED STATS VIEW ---
 class HabitStatsView(generics.RetrieveAPIView):
+    """Provides detailed statistics for a single habit, including streak calculations."""
     permission_classes = [permissions.IsAuthenticated]
     queryset = Habit.objects.all()
     lookup_field = 'pk'
 
     def calculate_build_streaks(self, habit):
+        """Calculates the current and longest streaks for a 'BUILD' type habit."""
         logs = habit.habitlog_set.order_by('-completion_date')
         if not logs:
             return 0, 0
 
         log_dates = {log.completion_date for log in logs}
         
-        # Longest Streak Calculation
+        # Calculate the longest streak by finding the longest chain of consecutive days
         longest_streak = 0
         if log_dates:
             sorted_dates = sorted(list(log_dates))
@@ -58,11 +65,12 @@ class HabitStatsView(generics.RetrieveAPIView):
                     current_longest = 1
             longest_streak = max(longest_streak, current_longest)
 
-        # Current Streak Calculation
+        # Calculate the current streak by counting backwards from the most recent log
         current_streak = 0
         today = date.today()
         most_recent_log_date = logs.first().completion_date
 
+        # A streak is only "current" if the last log was today or yesterday
         if most_recent_log_date == today or most_recent_log_date == (today - timedelta(days=1)):
             day_to_check = most_recent_log_date
             while day_to_check in log_dates:
@@ -72,29 +80,34 @@ class HabitStatsView(generics.RetrieveAPIView):
         return current_streak, longest_streak
 
     def calculate_quit_streaks(self, habit):
-        logs = habit.habitlog_set.order_by('-completion_date')
+        """Calculates the current and longest 'clean' streaks for a 'QUIT' type habit."""
         today = date.today()
         start_date = habit.created_at.date()
 
-        if not logs:
+        # Get all unique, sorted relapse dates
+        relapse_dates = sorted(list(
+            habit.habitlog_set.values_list('completion_date', flat=True).distinct()
+        ))
+        relapse_dates = [d for d in relapse_dates if d <= today] # Ignore future dates
+
+        if not relapse_dates:
+            # If there are no relapses, the streak is from creation day to today
             current_streak = (today - start_date).days + 1
             return current_streak, current_streak
 
-        log_dates = {log.completion_date for log in logs}
-        last_relapse_date = logs.first().completion_date
+        # Current streak is the number of days since the most recent relapse
+        last_relapse_date = relapse_dates[-1]
         current_streak = (today - last_relapse_date).days
 
-        sorted_dates = sorted(list(log_dates))
+        # To find the longest streak, we find the biggest gap in a timeline of events
+        timeline_dates = [start_date - timedelta(days=1)] + relapse_dates + [today]
+        
         longest_streak = 0
-        
-        if sorted_dates:
-            longest_streak = max(longest_streak, (sorted_dates[0] - start_date).days)
-        
-        for i in range(1, len(sorted_dates)):
-            gap = (sorted_dates[i] - sorted_dates[i-1]).days - 1
-            longest_streak = max(longest_streak, gap)
+        for i in range(1, len(timeline_dates)):
+            gap = (timeline_dates[i] - timeline_dates[i-1]).days - 1
+            if gap > longest_streak:
+                longest_streak = gap
 
-        longest_streak = max(longest_streak, current_streak)
         return current_streak, longest_streak
 
     def get(self, request, *args, **kwargs):
@@ -105,6 +118,7 @@ class HabitStatsView(generics.RetrieveAPIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        # Call the correct calculation method based on the habit's type
         if habit.habit_type == 'BUILD':
             current_streak, longest_streak = self.calculate_build_streaks(habit)
         else: # 'QUIT'
@@ -123,6 +137,7 @@ class HabitStatsView(generics.RetrieveAPIView):
 
 # --- DASHBOARD VIEW ---
 class DashboardView(APIView):
+    """Provides a high-level summary of all of a user's habits."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
@@ -131,9 +146,10 @@ class DashboardView(APIView):
 
         dashboard_data = []
         for habit in user_habits:
+            # For the dashboard, we only need the current streak
             if habit.habit_type == 'BUILD':
                 current_streak, _ = stats_calculator.calculate_build_streaks(habit)
-            else: # 'QUIT
+            else: 
                 current_streak, _ = stats_calculator.calculate_quit_streaks(habit)
 
             dashboard_data.append({

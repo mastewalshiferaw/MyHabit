@@ -18,13 +18,11 @@ class UserSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
 
-        user.set_password(validated_data["password"])  
-        user.save()
-        return user
+       
 
 
 class HabitSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(read_only=True, default=serializers.CurrentUserDefault())
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Habit

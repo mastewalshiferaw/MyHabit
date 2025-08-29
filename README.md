@@ -4,7 +4,7 @@ This is the backend API project for MyHabit, a personal habit tracker designed f
 
 Here is a step-by-step guide on how to interact with the MyHabit API.
 
-# 1. Registeration 
+### 1. Registeration 
 
 First, create a new user account.
 

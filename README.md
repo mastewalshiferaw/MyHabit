@@ -1,13 +1,63 @@
+# MyHabit API
+
 This is the backend API project for MyHabit, a personal habit tracker designed for effective habit management. The core problem this project solves is the lack of motivation that comes from generic tracking. It will provide smart, type-specific feedback like "clean streaks" for habits I am quitting and "success streaks" for habits I am building.
 
 ## Project Status
 This project is complete and meets all the core requirements. The API is fully functional for user authentication, habit management, progress logging, and statistics calculation.
 
+## Technologies Used
+*   Python
+*   Django & Django Rest Framework
+*   Simple JWT (for token authentication)
+*   SQLite3 (for the development database)
+
+## Getting Started / Local Setup
+
+To run this project on your local machine, please follow these steps:
+
+1.  **Clone the repository:**
+    ```sh
+    git clone https://github.com/mastewalshiferaw/MyHabit.git
+    cd MyHabit
+    ```
+
+2.  **Create and activate a virtual environment:**
+    ```sh
+    # For macOS/Linux
+    python3 -m venv venv
+    source venv/bin/activate
+
+    # For Windows
+    python -m venv venv
+    .\venv\Scripts\activate
+    ```
+
+3.  **Install the required dependencies:**
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+4.  **Run the database migrations:**
+    ```sh
+    python manage.py migrate
+    ```
+
+5.  **Create a superuser to access the admin panel:**
+    ```sh
+    python manage.py createsuperuser
+    ```
+
+6.  **Start the development server:**
+    ```sh
+    python manage.py runserver
+    ```
+    The API will now be running at `http://127.0.0.1:8000/`.
+
 ## API Usage Guide
 
 Here is a step-by-step guide on how to interact with the MyHabit API.
 
-### 1. Registeration 
+### 1. Registration
 
 First, create a new user account.
 
